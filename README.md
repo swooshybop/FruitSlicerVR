@@ -21,7 +21,7 @@ This project was created as part of my learning journey in VR development and in
   Points are awarded for slicing fruits correctly.
 
 - **Countdown Timer**  
-  The game runs for a limited time (currently 60 seconds by default).
+  The game runs for a limited time.
 
 ---
 
