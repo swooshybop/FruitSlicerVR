@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using DG.Tweening;
 
 public class fruitSpawner : MonoBehaviour
 {
@@ -11,16 +12,21 @@ public class fruitSpawner : MonoBehaviour
     void Awake()
     {
         Instance = this;
+
+        hiddenScoreboardPos = scoreboardPanel.anchoredPosition + Vector2.up * 300f;
+        scoreboardPanel.anchoredPosition = hiddenScoreboardPos;
     }
 
     public GameObject[] FruitPrefabs;
     public int TotalScore;
 
+    [SerializeField] GameObject scorePopupPrefab;
+
     public TMPro.TMP_Text ScoreVal;
     public TMPro.TMP_Text TimeVal;
 
     private float timeLeft;
-    private float TotalTime = 5f;
+    private float TotalTime = 15f;
     private float StartTime;
 
     [SerializeField] private GameObject restartOptionPrefab;
@@ -29,14 +35,26 @@ public class fruitSpawner : MonoBehaviour
     [SerializeField] Transform MenuAnchor;
     [SerializeField] Transform ScoreboardAnchor;
 
+    [SerializeField] RectTransform scoreboardPanel;
+    Vector2 hiddenScoreboardPos;
+
+    [SerializeField] GameObject audioManagerPrefab;
+
     bool roundRunning;
     Coroutine spawnLoop;
 
     // Start is called before the first frame update
     void Start()
     {
+        if(AudioManager.Ins == null)
+        {
+            Instantiate(audioManagerPrefab);
+        }
         ShowMenu();
         HideScoreboard();
+
+        AudioManager.Ins.PlayIdleMusic();
+
         roundRunning = false;
     }
 
@@ -58,6 +76,8 @@ public class fruitSpawner : MonoBehaviour
 
     public void BeginRound()
     {
+        AudioManager.Ins.StopIdleMusic();
+
         ClearMenu();
         ShowScoreboard();
 
@@ -78,8 +98,12 @@ public class fruitSpawner : MonoBehaviour
             StopCoroutine(spawnLoop);
         }
 
+        
         ShowMenu();
         HideScoreboard();
+
+        AudioManager.Ins.PlayIdleMusic();
+        
     }
 
     public void RestartRound()
@@ -108,12 +132,14 @@ public class fruitSpawner : MonoBehaviour
 
     void ShowScoreboard()
     {
-        ScoreVal.transform.parent.gameObject.SetActive(true);
+        //ScoreVal.transform.parent.gameObject.SetActive(true);
+        scoreboardPanel.DOAnchorPosY(0f, 0.4f).SetEase(Ease.OutBack);
     }
 
     void HideScoreboard()
     {
-        ScoreVal.transform.parent.gameObject.SetActive(false);
+        //ScoreVal.transform.parent.gameObject.SetActive(false);
+        scoreboardPanel.DOAnchorPosY(hiddenScoreboardPos.y, 0.3f).SetEase(Ease.InCubic);
     }
 
     public void RestartGame()
@@ -162,6 +188,9 @@ public class fruitSpawner : MonoBehaviour
         while (roundRunning)
         {
             GameObject Fruit = Instantiate(FruitPrefabs[Random.Range(0, FruitPrefabs.Length)]);
+
+            
+
             Rigidbody rigidbody = Fruit.GetComponent<Rigidbody>();
 
             rigidbody.velocity = new Vector3(0, 5f, 0);
@@ -170,6 +199,8 @@ public class fruitSpawner : MonoBehaviour
 
             Vector3 position = transform.position + transform.right * Random.Range(-1f, 1f);
             Fruit.transform.position = position;
+
+            AudioManager.Ins.PlayWhoosh(position);
 
             yield return new WaitForSeconds(3f);
             //The yield keyword tells the compiler that the method in which it appears is an iterator block.
@@ -180,10 +211,25 @@ public class fruitSpawner : MonoBehaviour
         }
     }
 
-    public void scoreGame(int Score)
+    public void scoreGame(int Score, Vector3 worldPos)
     {
         TotalScore += Score;
-
         ScoreVal.text = TotalScore.ToString();
+
+        //showing the score earned through a popup
+        //Vector3 pos = transform.position;
+
+        GameObject popup = Instantiate(scorePopupPrefab, worldPos, Quaternion.identity);
+
+        var text = popup.GetComponent<TMPro.TMP_Text>();
+        text.text = "+" + Score.ToString();
+
+        Vector3 baseScale = popup.transform.localScale;
+        float growFactor = 1.6f;
+        Vector3 targetScale = baseScale * growFactor;
+
+        Sequence sequence = DOTween.Sequence();
+        sequence.Append(popup.transform.DOMoveY(worldPos.y + 0.25f, 0.4f).SetEase(Ease.OutCubic)).Join(popup.transform.DOScale(targetScale, 0.15f).SetEase(Ease.OutBack)).AppendInterval(0.35f).Append(text.DOFade(0, 0.3f)).OnComplete(() => Destroy(popup));
+
     }
 }
